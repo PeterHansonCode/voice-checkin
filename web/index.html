@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Morning Check-in</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main>
+<header><span class="eyebrow">A LITTLE CLARITY, EVERY MORNING</span><span id="date"></span></header>
+<h1>Start with how you are.</h1><p class="intro">A short voice check-in. Review what was heard, then save your day.</p>
+<div class="layout"><section class="card">
+<span class="step">01 / CHECK IN</span><h2>Tell me about your morning</h2>
+<p>How long did you sleep? What is your energy out of five? Have you had sunlight, exercised or meditated?</p>
+<div class="actions"><button id="listen" type="button">Use microphone</button><button id="speak" class="secondary" type="button">Read questions aloud</button></div>
+<p class="small">Speech recognition depends on your browser and may use its online service. You can always type instead.</p>
+<label for="transcript">Your words</label><textarea id="transcript" rows="6" placeholder="I slept seven and a half hours. My energy is four out of five. I went outside but haven't exercised yet…"></textarea>
+<button id="extract" type="button">Organise my answers</button><p id="model" class="small"></p>
+</section><section class="card">
+<span class="step">02 / REVIEW & SAVE</span><h2>Does this sound right?</h2><p>Correct anything below. Unknown is a valid answer.</p>
+<form id="review"><div class="fields"><label>Sleep hours<input id="sleepHours" type="number" min="0" max="24" step="0.1" placeholder="Unknown"></label><label>Energy / 5<input id="energy" type="number" min="1" max="5" step="1" placeholder="Unknown"></label></div>
+<div class="fields habits"><label>Sunlight<select id="sunlight"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></label><label>Exercise<select id="exercise"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></label><label>Meditation<select id="meditation"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></label></div>
+<label>Anything else?<textarea id="note" maxlength="1000" rows="3"></textarea></label>
+<label class="confirm"><input id="confirmed" type="checkbox" required> I have reviewed these answers.</label>
+<button id="save" type="submit">Save check-in</button><button id="new" class="secondary" type="button">New check-in</button>
+</form></section></div>
+<p id="status" role="status" aria-live="polite">Your check-in stays in this local app. Drafts are kept in this browser until saved or cleared.</p>
+<section class="history"><h2>Your recent check-ins</h2><div id="history"></div></section>
+<footer>Local model extraction · Confirm before saving · Duplicate-safe storage</footer>
+</main></body></html>
