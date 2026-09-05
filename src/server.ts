@@ -8,7 +8,7 @@ import {extract} from './ollama.ts';
 
 export async function buildServer(dbPath: string) {
   const store = createStore(dbPath);
-  const assets = new Map([['/', ['index.html','text/html']], ['/app.js',['app.js','text/javascript']], ['/style.css',['style.css','text/css']]]);
+  const assets = new Map([['/', ['index.html','text/html']], ['/app.js',['app.js','text/javascript']], ['/retry.js',['retry.js','text/javascript']], ['/style.css',['style.css','text/css']]]);
   async function body(req: IncomingMessage) {
     if (!req.headers['content-type']?.startsWith('application/json')) throw new InputError('Send JSON.');
     let text = '';

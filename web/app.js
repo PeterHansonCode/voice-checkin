@@ -1,3 +1,4 @@
+import {retrySave} from './retry.js';
 const $ = id => document.getElementById(id);
 const keys=['sleepHours','energy','sunlight','exercise','meditation','note'];
 const draftKey='morning-checkin-draft-v1';
@@ -30,15 +31,11 @@ $('review').onsubmit=async event=>{
   if(!frozen){frozen={submissionId,date,confirmed:true,answers:answers()};preserve();}
   busy=true;lock(true);$('save').disabled=true;$('new').disabled=true;
   try{
-    let saved;
-    for(let attempt=0;attempt<3;attempt++){
-      try{saved=await request('/api/checkins',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(frozen)});break;}
-      catch(e){if((e.status&&e.status<500)||attempt===2)throw e;status(`Save interrupted. Retrying the same submission (${attempt+2}/3)…`);await new Promise(r=>setTimeout(r,400*2**attempt));}
-    }
+    const saved=await retrySave(()=>request('/api/checkins',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(frozen)}),attempt=>status(`Save interrupted. Retrying the same submission (${attempt}/3)…`));
     localStorage.removeItem(draftKey);status(saved.duplicate?'Already saved. The retry did not create a duplicate.':'Saved. Your Markdown export is ready below.');
     try{await history();}catch{status('Saved successfully. Refresh to see your history.');}
     $('save').textContent='Saved';
-  }catch(e){status(`${e.message} Retry Save with the same answers. Use New check-in only if you intend a separate record.`);$('save').disabled=false;}
+  }catch(e){if(e.status===400){frozen=null;lock(false);$('confirmed').checked=false;preserve();status(`${e.message} Correct your answers and confirm again.`);}else{status(`${e.message} Retry Save with the same answers. Use New check-in only if you intend a separate record.`);}$('save').disabled=false;}
   finally{busy=false;$('new').disabled=false;}
 };
 $('new').onclick=()=>{if(busy)return;submissionId=crypto.randomUUID();frozen=null;localStorage.removeItem(draftKey);$('review').reset();$('transcript').value='';lock(false);$('save').disabled=false;$('save').textContent='Save check-in';status('A new check-in is ready.');};
