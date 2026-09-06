@@ -22,7 +22,7 @@ async function history(){
 for(const id of [...keys,'transcript'])$(id).addEventListener('input',()=>{$('confirmed').checked=false;preserve();});
 $('extract').onclick=async()=>{
   busy=true;lock(true);$('new').disabled=true;status('Organising your answers with the local model…');
-  try{const result=await request('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript:$('transcript').value})});fill(result.answers);$('confirmed').checked=false;preserve();status(`Answers ready in ${(result.durationMs/1000).toFixed(1)}s. Review each field before saving.`);}
+  try{const result=await request('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript:$('transcript').value})});fill(result.answers);$('confirmed').checked=false;preserve();const droppedNote=result.dropped&&result.dropped.length?` ${result.dropped.join(', ')} could not be understood as a valid value and ${result.dropped.length>1?'were':'was'} left unknown.`:'';status(`Answers ready in ${(result.durationMs/1000).toFixed(1)}s.${droppedNote} Review each field before saving.`);}
   catch(e){status(`${e.message} You can enter the fields manually; your words are preserved.`);}
   finally{busy=false;lock(false);$('new').disabled=false;}
 };

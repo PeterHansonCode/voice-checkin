@@ -36,16 +36,16 @@ npm run typecheck
 npm test
 ```
 
-Six offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries and bounded retries. GitHub Actions is configured; remote execution is not yet verified.
+Twelve offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, and per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields). GitHub Actions is configured; remote execution is not yet verified.
 
 ## Local evidence — 6 September 2026
 
-- Six tests and TypeScript check passed.
+- Twelve tests and TypeScript check passed.
 - Eight simultaneous HTTP submissions created one record.
 - Browser review/save verified using labelled synthetic data.
 - Real Qwen3 extraction tested at roughly 4–7 seconds in observed runs; positive and negative answers mapped correctly after prompt refinement.
 - An uncertain sleep answer initially became an invented midpoint. A conservative uncertainty guard leaves that tested case unknown. It is a limited heuristic, not complete ambiguity detection.
-- Microphone capture on Peter's browser remains a user acceptance check.
+- Microphone capture verified on Peter's browser using real speech. Found and fixed a real bug in this pass: some browsers fire the speech API's result event more than once per utterance despite `interimResults: false`, and the transcript was naively appending each call instead of replacing, producing runaway duplicated text. Also found the model occasionally returning an out-of-range value (e.g. energy 12/5) that the server correctly rejected, but doing so discarded every other correctly-extracted field in the same request; extraction now nulls and reports only the specific bad field.
 
 ## Scope and privacy
 

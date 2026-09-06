@@ -10,18 +10,20 @@ export type Answers = {
 export class InputError extends Error {}
 export class ConflictError extends Error {}
 
+function inRange(key: 'sleepHours' | 'energy', n: unknown): n is number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return false;
+  if (key === 'energy') return Number.isInteger(n) && n >= 1 && n <= 5;
+  return n >= 0 && n <= 24;
+}
+
 export function parseAnswers(value: unknown): Answers {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new InputError('Answers must be an object.');
   const a = value as Record<string, unknown>;
   const keys = ['sleepHours', 'energy', 'sunlight', 'exercise', 'meditation', 'note'];
   if (Object.keys(a).some(k => !keys.includes(k))) throw new InputError('Unknown answer field.');
-  for (const [key, max] of [['sleepHours', 24], ['energy', 5]] as const) {
-    const n = a[key];
-    if (n !== null && (typeof n !== 'number' || !Number.isFinite(n) || n < (key === 'energy' ? 1 : 0) || n > max)) {
-      throw new InputError(`${key} is outside its allowed range.`);
-    }
+  for (const key of ['sleepHours', 'energy'] as const) {
+    if (a[key] !== null && !inRange(key, a[key])) throw new InputError(`${key} is outside its allowed range.`);
   }
-  if (a.energy !== null && !Number.isInteger(a.energy)) throw new InputError('Energy must be a whole number.');
   for (const key of ['sunlight', 'exercise', 'meditation']) {
     if (a[key] !== null && typeof a[key] !== 'boolean') throw new InputError(`${key} must be yes, no or unknown.`);
   }
@@ -30,6 +32,50 @@ export function parseAnswers(value: unknown): Answers {
     sleepHours: a.sleepHours as number | null, energy: a.energy as number | null,
     sunlight: a.sunlight as boolean | null, exercise: a.exercise as boolean | null,
     meditation: a.meditation as boolean | null, note: a.note.trim()
+  };
+}
+
+// Lenient counterpart used only for RAW MODEL OUTPUT during extraction.
+// parseAnswers (above) stays strict for the final, human-confirmed save --
+// one bad field must still block persistence entirely, per the build
+// contract. But a model guess is not a confirmed answer: if it gets one
+// field wrong, the fix is to null out just that field and let the human
+// correct it during review, not to discard every other field it got right.
+// Returns which fields were dropped so the UI can say so honestly instead
+// of leaving a silently blank field.
+export function sanitizeExtractedAnswers(value: unknown): {answers: Answers; dropped: string[]} {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new InputError('Model output was not a JSON object.');
+  const a = value as Record<string, unknown>;
+  const dropped: string[] = [];
+  const num = (key: 'sleepHours' | 'energy'): number | null => {
+    const n = a[key];
+    if (n === null || n === undefined) return null;
+    if (inRange(key, n)) return n;
+    dropped.push(key);
+    return null;
+  };
+  const bool = (key: string): boolean | null => {
+    const v = a[key];
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'boolean') return v;
+    dropped.push(key);
+    return null;
+  };
+  const rawNote = a.note;
+  let note: string;
+  if (typeof rawNote === 'string' && rawNote.length <= 1000) {
+    note = rawNote;
+  } else {
+    if (rawNote !== undefined && rawNote !== null && rawNote !== '') dropped.push('note');
+    note = '';
+  }
+  return {
+    answers: {
+      sleepHours: num('sleepHours'), energy: num('energy'),
+      sunlight: bool('sunlight'), exercise: bool('exercise'), meditation: bool('meditation'),
+      note: note.trim()
+    },
+    dropped
   };
 }
 
