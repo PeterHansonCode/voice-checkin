@@ -34,6 +34,32 @@ test('invalid or unconfirmed answers cannot be persisted',()=>{
 
 test('Brisbane date handles the UTC boundary',()=>assert.equal(brisbaneDate(new Date('2026-09-05T15:00:00Z')),'2026-09-06'));
 
+test('every ES module app.js statically imports is actually served by the real HTTP server',async()=>{
+  // A review caught this the hard way: app.js gained an `import ... from
+  // './newCheckin.js'` while the server's static-asset map wasn't updated,
+  // so the browser's module fetch 404'd and the whole script failed to
+  // execute -- no handlers ever wired up, with nothing in the unit tests
+  // (which import newCheckin.js directly in Node, bypassing the server
+  // entirely) able to notice. This walks app.js's own source for static
+  // import specifiers and fetches each one from a real running server, so
+  // a future import with no matching route entry fails this test instead
+  // of silently breaking the page.
+  const server=await buildServer(':memory:');
+  await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+  const address=server.address() as {port:number};
+  const base=`http://127.0.0.1:${address.port}`;
+  try {
+    const appJs=await (await fetch(`${base}/app.js`)).text();
+    const specifiers=[...appJs.matchAll(/^import\s*\{[^}]*\}\s*from\s*'(\.\/[^']+)';?$/gm)].map(m=>m[1]);
+    assert.ok(specifiers.length>0,'expected at least one static import in app.js to check');
+    for(const specifier of specifiers){
+      const response=await fetch(new URL(specifier,`${base}/app.js`));
+      assert.equal(response.status,200,`${specifier} (imported by app.js) must be served, got ${response.status}`);
+      assert.match(response.headers.get('content-type') || '',/javascript/);
+    }
+  } finally {server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+});
+
 test('concurrent HTTP retries create one row; export derives from saved data; foreign origins fail',async()=>{
   const server=await buildServer(':memory:');
   await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));

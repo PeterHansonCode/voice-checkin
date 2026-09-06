@@ -15,8 +15,21 @@
 // confirmed. If the fetch fails, nothing is reset (the stale date is never
 // silently adopted) and the failure is reported through `setStatus`, not
 // swallowed.
+//
+// A second review caught a further bug in that fix: the `finally` block
+// unconditionally re-enabled Save and unlocked the fields on ANY outcome,
+// success or failure. That's correct after a successful reset, but wrong
+// after a failure that happens while a PREVIOUS confirmed submission is
+// still frozen (e.g. a save is mid-retry, or the user reopened a draft) --
+// unlocking then lets the visible fields be edited while Save would still
+// silently submit the old frozen answers underneath them, not what's on
+// screen. So the prior lock/Save state is captured before anything
+// changes, and a failure restores exactly that state instead of forcing
+// everything open.
 export async function newCheckin(deps) {
   if (deps.isBusy()) return;
+  const wasLocked = deps.isLocked();
+  const wasSaveDisabled = deps.isSaveDisabled();
   deps.setBusy(true);
   deps.lock(true);
   deps.setSaveDisabled(true);
@@ -26,12 +39,14 @@ export async function newCheckin(deps) {
     deps.setDate(info.date);
     deps.resetState();
     deps.setStatus('A new check-in is ready.');
+    deps.lock(false);
+    deps.setSaveDisabled(false);
   } catch (e) {
     deps.setStatus(`Could not confirm today's date (${e.message}). Nothing was reset -- try New check-in again before continuing.`);
+    deps.lock(wasLocked);
+    deps.setSaveDisabled(wasSaveDisabled);
   } finally {
     deps.setBusy(false);
-    deps.lock(false);
     deps.setNewDisabled(false);
-    deps.setSaveDisabled(false);
   }
 }

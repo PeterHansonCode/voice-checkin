@@ -8,7 +8,14 @@ import {extract} from './ollama.ts';
 
 export async function buildServer(dbPath: string) {
   const store = createStore(dbPath);
-  const assets = new Map([['/', ['index.html','text/html']], ['/app.js',['app.js','text/javascript']], ['/retry.js',['retry.js','text/javascript']], ['/style.css',['style.css','text/css']]]);
+  // Every browser-side ES module app.js imports (even indirectly) needs its
+  // own entry here -- the browser resolves `import ... from './x.js'`
+  // relative to /app.js's own URL and fetches /x.js straight from the
+  // server, so a module missing from this map 404s and app.js's whole
+  // top-level `import` fails before any of its code -- including all the
+  // event handler wiring -- ever runs. (Caught in review: newCheckin.js was
+  // added as an import without being added here.)
+  const assets = new Map([['/', ['index.html','text/html']], ['/app.js',['app.js','text/javascript']], ['/retry.js',['retry.js','text/javascript']], ['/newCheckin.js',['newCheckin.js','text/javascript']], ['/style.css',['style.css','text/css']]]);
   async function body(req: IncomingMessage) {
     if (!req.headers['content-type']?.startsWith('application/json')) throw new InputError('Send JSON.');
     let text = '';

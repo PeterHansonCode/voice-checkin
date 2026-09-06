@@ -3,12 +3,12 @@ import {newCheckin} from './newCheckin.js';
 const $ = id => document.getElementById(id);
 const keys=['sleepHours','energy','sunlight','exercise','meditation','note'];
 const draftKey='morning-checkin-draft-v1';
-let submissionId=crypto.randomUUID(), date='', frozen=null, busy=false;
+let submissionId=crypto.randomUUID(), date='', frozen=null, busy=false, locked=false;
 const status=message=>$('status').textContent=message;
 function answers(){return Object.fromEntries(keys.map(k=>[k,k==='note'?$(k).value:$(k).value===''?null:['sleepHours','energy'].includes(k)?Number($(k).value):$(k).value==='true']));}
 function preserve(){localStorage.setItem(draftKey,JSON.stringify({submissionId,date,transcript:$('transcript').value,answers:answers(),frozen}));}
 function fill(a){for(const k of keys)$(k).value=a[k]===null?'':String(a[k]??'');}
-function lock(value){for(const k of keys)$(k).disabled=value;$('extract').disabled=value;$('listen').disabled=value;$('transcript').disabled=value;$('confirmed').disabled=value;}
+function lock(value){locked=value;for(const k of keys)$(k).disabled=value;$('extract').disabled=value;$('listen').disabled=value;$('transcript').disabled=value;$('confirmed').disabled=value;}
 async function request(path, options={}){
   const response=await fetch(path,{...options,signal:AbortSignal.timeout(path.includes('extract')?125000:10000)});
   const result=await response.json();
@@ -42,6 +42,8 @@ $('review').onsubmit=async event=>{
 $('new').onclick=()=>newCheckin({
   isBusy:()=>busy,
   setBusy:value=>busy=value,
+  isLocked:()=>locked,
+  isSaveDisabled:()=>$('save').disabled,
   lock,
   setSaveDisabled:value=>$('save').disabled=value,
   setNewDisabled:value=>$('new').disabled=value,

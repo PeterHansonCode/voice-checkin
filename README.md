@@ -36,7 +36,7 @@ npm run typecheck
 npm test
 ```
 
-Twenty offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields), note-leakage detection (regression cases from real leaked output, plus a word-boundary regex bug that let some recaps slip through, plus cases confirming a genuine short note still passes through), and the "New check-in" date-refresh sequencing (a successful refresh, a failed one, and two clicks racing each other). GitHub Actions is configured; remote execution is not yet verified.
+Twenty-two offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields), note-leakage detection (regression cases from real leaked output, plus a word-boundary regex bug that let some recaps slip through, plus cases confirming a genuine short note still passes through), the "New check-in" date-refresh sequencing (a successful refresh, a failed one, a failed one while a previous submission is still frozen, and two clicks racing each other), and that every ES module app.js imports is actually served by the real HTTP server (not just importable in a Node test). GitHub Actions is configured; remote execution is not yet verified.
 
 ## Local evidence — 6 September 2026
 
@@ -54,6 +54,15 @@ An independent review (ChatGPT, given the working folders) found three more real
 ## Code review pass — 6 September 2026 (round two)
 
 A second independent review found the first "New check-in" fix was incomplete: it re-fetched the date, but only disabled the New button while doing so -- Save stayed clickable and the shared `busy` flag was never set, so a click on Save during that window could still race a date refresh, and a failed fetch was silently swallowed (falling through to reset the form with the stale date rather than reporting anything). Fixed by extracting the whole sequence into a plain, dependency-injected function (`web/newCheckin.js`, no DOM references, no new package) that sets `busy` and disables both Save and New for the full duration of the fetch, only resets the form once a fresh date is confirmed, and reports a failed fetch through the status line instead of adopting the stale date silently. Covered by three new regression tests: a successful refresh, a failed one, and two clicks racing each other -- the last of these exercises the original bug directly.
+
+## Code review pass — 6 September 2026 (round three)
+
+A third review caught two real problems the unit tests alone missed, both because they only exist at the boundary between the server and a real browser -- something a Node-only test that imports `newCheckin.js` directly can't see:
+
+1. **The app couldn't start.** `app.js` gained a static `import ... from './newCheckin.js'` in round two, but the server's static-asset map was never updated to serve that file -- `/app.js` returned 200, `/newCheckin.js` returned 404, and a failed module import means the browser never runs any of `app.js`, including all its event-handler wiring. Fixed by adding `/newCheckin.js` to `src/server.ts`'s asset map, and added a regression test that fetches `/app.js` from a real running server, parses its static import specifiers, and fetches each one in turn -- so a future import with no matching route fails a test instead of silently breaking the page. Confirmed this test fails against the pre-fix server and passes against the fix.
+2. **A failed date refresh could unlock a stale frozen submission.** `newCheckin.js`'s `finally` block re-enabled Save and unlocked the fields unconditionally, on any outcome. That's right after a successful reset, but wrong if the refresh fails while a previous confirmed submission is still frozen (a save mid-retry, or a restored draft): unlocking then lets the visible fields be edited while Save would still silently submit the *old* frozen answers underneath them, not what's on screen. Fixed by capturing the lock/Save state before the refresh starts and restoring exactly that state on failure, instead of forcing everything open. Added a regression test starting from a locked, Save-disabled (frozen) state, confirmed it fails against the prior code and passes against the fix.
+
+Both fixes verified with the real HTTP server (not just the pure-function unit tests) and with `npm run typecheck`; 22 tests total, up from 20.
 
 ## Scope and privacy
 
