@@ -18,12 +18,19 @@ export class ConflictError extends Error {}
 // note instead of leaving it empty. Prompting alone did not fix this, so
 // this is a deterministic backstop: never trust note if it reads like
 // commentary about the extraction itself rather than something the user
-// actually said as an aside. This is a heuristic, not true understanding --
+// actually said as an aside. This is a heuristic, not true understanding:
 // it can occasionally drop a genuine note that happens to closely resemble
-// a recap, but never invents or keeps fabricated commentary, which matches
-// this project's "never guess" rule better than trusting the model here would.
+// a recap, and it can occasionally miss a paraphrased recap that avoids
+// both the leak phrases and the tracked topic words entirely (e.g. "The
+// user reported five hours of rest."). It is a real, tested improvement
+// over trusting the model's prompt compliance alone, not a guarantee.
 const LEAK_PHRASES = /\b(invalid|nonsensical|physically impossible|out of range|outside the|rounded to|per (the )?(rules|constraints|instruction)|as per|not feasible|final (output|energy|value)|no valid energy)\b/i;
-const TOPIC_WORDS: RegExp[] = [/\bslept?\b/i, /\benergy\b/i, /\bsunlight\b/i, /\bexercis/i, /\bmeditat/i];
+// Bug fixed here: /\bslept?\b/ only matches "slep" or "slept" -- it can
+// never match "sleep" itself (the 't?' makes the optional letter the
+// WRONG one). That silently undercounted topic-word matches for any note
+// phrased in the present tense ("Sleep 7 hours..."), which is exactly the
+// kind of plain field recap this filter exists to catch.
+const TOPIC_WORDS: RegExp[] = [/\b(?:sleep\w*|slept)\b/i, /\benergy\b/i, /\bsunlight\b/i, /\bexercis/i, /\bmeditat/i];
 
 function looksLikeLeakedSummary(note: string): boolean {
   if (LEAK_PHRASES.test(note)) return true;

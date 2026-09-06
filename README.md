@@ -36,11 +36,15 @@ npm run typecheck
 npm test
 ```
 
-Sixteen offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields), and note-leakage detection (regression cases from real leaked output, plus cases confirming a genuine short note still passes through). GitHub Actions is configured; remote execution is not yet verified.
+Seventeen offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields), and note-leakage detection (regression cases from real leaked output, plus a word-boundary regex bug that let some recaps slip through, plus cases confirming a genuine short note still passes through). GitHub Actions is configured; remote execution is not yet verified.
 
 ## Local evidence — 6 September 2026
 
-- Sixteen tests and TypeScript check passed.
+## Code review pass — 6 September 2026
+
+An independent review (ChatGPT, given the working folders) found three more real bugs, all fixed and verified: "New check-in" never refreshed the check-in date, so a tab left open past the local date boundary would keep submitting under the old date -- it now re-fetches the current date first. Speech capture only kept the most recently finalized recognition result, silently discarding any earlier segment if a session ever produced more than one -- it now buffers every result index and joins them in order. The note-leakage regex for "sleep" only ever matched "slep"/"slept", never "sleep" itself (an off-by-letter word-boundary bug), which meant a plain present-tense recap could dodge the filter by one topic-word short of the threshold -- fixed and covered by a new regression test using the exact example the review found. A source comment overclaiming the note filter "never keeps fabricated commentary" was also corrected to state its real, tested limits rather than a guarantee it can't back.
+
+- Seventeen tests and TypeScript check passed.
 - Eight simultaneous HTTP submissions created one record.
 - Browser review/save verified using labelled synthetic data.
 - Real Qwen3 extraction tested at roughly 4–7 seconds in observed runs; positive and negative answers mapped correctly after prompt refinement.

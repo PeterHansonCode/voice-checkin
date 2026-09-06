@@ -71,3 +71,12 @@ test('a genuine note mentioning one tracked topic in passing is still kept', () 
   assert.equal(answers.note, 'Slept in a hotel room with bad blackout curtains.');
   assert.deepEqual(dropped, []);
 });
+
+test('a present-tense recap using the word "sleep" is still caught, not missed by a word-boundary bug', () => {
+  // Regression case: the topic-word regex for sleep was /\bslept?\b/, which
+  // can only match "slep" or "slept" -- never "sleep" itself. That silently
+  // undercounted topic words for any recap phrased in the present tense.
+  const {answers, dropped} = sanitizeExtractedAnswers({...good, note: 'Sleep 7 hours, sunlight yes, exercise no.'});
+  assert.equal(answers.note, '');
+  assert.deepEqual(dropped, ['note']);
+});
