@@ -44,9 +44,16 @@ const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
 if(!Recognition){$('listen').disabled=true;$('listen').textContent='Microphone unavailable — type below';}
 else{
   const recognition=new Recognition();recognition.lang='en-AU';recognition.continuous=false;recognition.interimResults=false;
-  $('listen').onclick=()=>{try{recognition.start();status('Listening…');}catch{status('Microphone is already starting.');}};
-  recognition.onresult=event=>{$('transcript').value+=($('transcript').value?' ':'')+event.results[0][0].transcript;$('confirmed').checked=false;preserve();status('Speech captured. Organise your answers or continue speaking.');};
-  recognition.onerror=event=>status(`Speech recognition: ${event.error}. You can type your answers instead.`);
+  // Some browsers still fire onresult more than once per utterance even with
+  // interimResults=false (each call a progressively more complete guess for
+  // the SAME sentence). Only replace a pending buffer on each call, and
+  // commit it to the visible transcript once, when the session truly ends —
+  // this stays correct no matter how many times onresult fires.
+  let pendingSpeech='';
+  $('listen').onclick=()=>{pendingSpeech='';try{recognition.start();status('Listening…');}catch{status('Microphone is already starting.');}};
+  recognition.onresult=event=>{const last=event.results[event.results.length-1];pendingSpeech=last[0].transcript.trim();};
+  recognition.onerror=event=>{pendingSpeech='';status(`Speech recognition: ${event.error}. You can type your answers instead.`);};
+  recognition.onend=()=>{if(pendingSpeech){$('transcript').value+=($('transcript').value?' ':'')+pendingSpeech;$('confirmed').checked=false;preserve();status('Speech captured. Organise your answers or continue speaking.');}pendingSpeech='';};
 }
 async function init(){
   const info=await request('/api/status');date=info.date;$('date').textContent=date;$('model').textContent=`Extraction: ${info.model} on your computer. Manual entry also works.`;
