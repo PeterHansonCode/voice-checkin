@@ -36,7 +36,7 @@ npm run typecheck
 npm test
 ```
 
-Seventeen offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields), and note-leakage detection (regression cases from real leaked output, plus a word-boundary regex bug that let some recaps slip through, plus cases confirming a genuine short note still passes through). GitHub Actions is configured; remote execution is not yet verified.
+Twenty offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields), note-leakage detection (regression cases from real leaked output, plus a word-boundary regex bug that let some recaps slip through, plus cases confirming a genuine short note still passes through), and the "New check-in" date-refresh sequencing (a successful refresh, a failed one, and two clicks racing each other). GitHub Actions is configured; remote execution is not yet verified.
 
 ## Local evidence — 6 September 2026
 
@@ -44,12 +44,16 @@ Seventeen offline tests cover concurrent requests, lost acknowledgement/restart,
 
 An independent review (ChatGPT, given the working folders) found three more real bugs, all fixed and verified: "New check-in" never refreshed the check-in date, so a tab left open past the local date boundary would keep submitting under the old date -- it now re-fetches the current date first. Speech capture only kept the most recently finalized recognition result, silently discarding any earlier segment if a session ever produced more than one -- it now buffers every result index and joins them in order. The note-leakage regex for "sleep" only ever matched "slep"/"slept", never "sleep" itself (an off-by-letter word-boundary bug), which meant a plain present-tense recap could dodge the filter by one topic-word short of the threshold -- fixed and covered by a new regression test using the exact example the review found. A source comment overclaiming the note filter "never keeps fabricated commentary" was also corrected to state its real, tested limits rather than a guarantee it can't back.
 
-- Seventeen tests and TypeScript check passed.
+- Twenty tests and TypeScript check passed.
 - Eight simultaneous HTTP submissions created one record.
 - Browser review/save verified using labelled synthetic data.
 - Real Qwen3 extraction tested at roughly 4–7 seconds in observed runs; positive and negative answers mapped correctly after prompt refinement.
 - An uncertain sleep answer initially became an invented midpoint. A conservative uncertainty guard leaves that tested case unknown. It is a limited heuristic, not complete ambiguity detection.
 - Microphone capture verified on Peter's browser using real speech. Found and fixed a real bug in this pass: some browsers fire the speech API's result event more than once per utterance despite `interimResults: false`, and the transcript was naively appending each call instead of replacing, producing runaway duplicated text. Also found the model occasionally returning an out-of-range value (e.g. energy 12/5) that the server correctly rejected, but doing so discarded every other correctly-extracted field in the same request; extraction now nulls and reports only the specific bad field. A further round of real retesting then showed the note field being filled with the model's own reasoning about rejected values, or a plain recap of every answer, on both an edge-case input and a completely normal one; a strengthened prompt alone did not stop this reliably, so a deterministic check now drops any note that reads like commentary about the extraction (naming a rejected value, or covering most of the tracked topics at once) rather than trusting the model's compliance.
+
+## Code review pass — 6 September 2026 (round two)
+
+A second independent review found the first "New check-in" fix was incomplete: it re-fetched the date, but only disabled the New button while doing so -- Save stayed clickable and the shared `busy` flag was never set, so a click on Save during that window could still race a date refresh, and a failed fetch was silently swallowed (falling through to reset the form with the stale date rather than reporting anything). Fixed by extracting the whole sequence into a plain, dependency-injected function (`web/newCheckin.js`, no DOM references, no new package) that sets `busy` and disables both Save and New for the full duration of the fetch, only resets the form once a fresh date is confirmed, and reports a failed fetch through the status line instead of adopting the stale date silently. Covered by three new regression tests: a successful refresh, a failed one, and two clicks racing each other -- the last of these exercises the original bug directly.
 
 ## Scope and privacy
 

@@ -1,4 +1,5 @@
 import {retrySave} from './retry.js';
+import {newCheckin} from './newCheckin.js';
 const $ = id => document.getElementById(id);
 const keys=['sleepHours','energy','sunlight','exercise','meditation','note'];
 const draftKey='morning-checkin-draft-v1';
@@ -38,13 +39,17 @@ $('review').onsubmit=async event=>{
   }catch(e){if(e.status===400){frozen=null;lock(false);$('confirmed').checked=false;preserve();status(`${e.message} Correct your answers and confirm again.`);}else{status(`${e.message} Retry Save with the same answers. Use New check-in only if you intend a separate record.`);}$('save').disabled=false;}
   finally{busy=false;$('new').disabled=false;}
 };
-$('new').onclick=async()=>{
-  if(busy)return;
-  $('new').disabled=true;
-  try{const info=await request('/api/status');date=info.date;$('date').textContent=date;}catch{}
-  submissionId=crypto.randomUUID();frozen=null;localStorage.removeItem(draftKey);$('review').reset();$('transcript').value='';lock(false);$('save').disabled=false;$('save').textContent='Save check-in';preserve();status('A new check-in is ready.');
-  $('new').disabled=false;
-};
+$('new').onclick=()=>newCheckin({
+  isBusy:()=>busy,
+  setBusy:value=>busy=value,
+  lock,
+  setSaveDisabled:value=>$('save').disabled=value,
+  setNewDisabled:value=>$('new').disabled=value,
+  fetchStatus:()=>request('/api/status'),
+  setDate:d=>{date=d;$('date').textContent=d;},
+  resetState:()=>{submissionId=crypto.randomUUID();frozen=null;localStorage.removeItem(draftKey);$('review').reset();$('transcript').value='';$('save').textContent='Save check-in';preserve();},
+  setStatus:status,
+});
 $('speak').onclick=()=>{speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance('How long did you sleep? What is your energy out of five? Have you had sunlight, exercised, or meditated?'));};
 const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
 if(!Recognition){$('listen').disabled=true;$('listen').textContent='Microphone unavailable — type below';}
