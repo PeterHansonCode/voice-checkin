@@ -36,11 +36,11 @@ npm run typecheck
 npm test
 ```
 
-Twelve offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, and per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields). GitHub Actions is configured; remote execution is not yet verified.
+Sixteen offline tests cover concurrent requests, lost acknowledgement/restart, conflicts, invalid/unconfirmed values, timezone boundaries, bounded retries, per-field extraction sanitisation (one out-of-range or malformed field from the model is nulled and reported, without discarding the other correctly-extracted fields), and note-leakage detection (regression cases from real leaked output, plus cases confirming a genuine short note still passes through). GitHub Actions is configured; remote execution is not yet verified.
 
 ## Local evidence — 6 September 2026
 
-- Twenty tests and TypeScript check passed.
+- Sixteen tests and TypeScript check passed.
 - Eight simultaneous HTTP submissions created one record.
 - Browser review/save verified using labelled synthetic data.
 - Real Qwen3 extraction tested at roughly 4–7 seconds in observed runs; positive and negative answers mapped correctly after prompt refinement.
