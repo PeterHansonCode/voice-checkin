@@ -40,12 +40,12 @@ Twelve offline tests cover concurrent requests, lost acknowledgement/restart, co
 
 ## Local evidence — 6 September 2026
 
-- Twelve tests and TypeScript check passed.
+- Twenty tests and TypeScript check passed.
 - Eight simultaneous HTTP submissions created one record.
 - Browser review/save verified using labelled synthetic data.
 - Real Qwen3 extraction tested at roughly 4–7 seconds in observed runs; positive and negative answers mapped correctly after prompt refinement.
 - An uncertain sleep answer initially became an invented midpoint. A conservative uncertainty guard leaves that tested case unknown. It is a limited heuristic, not complete ambiguity detection.
-- Microphone capture verified on Peter's browser using real speech. Found and fixed a real bug in this pass: some browsers fire the speech API's result event more than once per utterance despite `interimResults: false`, and the transcript was naively appending each call instead of replacing, producing runaway duplicated text. Also found the model occasionally returning an out-of-range value (e.g. energy 12/5) that the server correctly rejected, but doing so discarded every other correctly-extracted field in the same request; extraction now nulls and reports only the specific bad field.
+- Microphone capture verified on Peter's browser using real speech. Found and fixed a real bug in this pass: some browsers fire the speech API's result event more than once per utterance despite `interimResults: false`, and the transcript was naively appending each call instead of replacing, producing runaway duplicated text. Also found the model occasionally returning an out-of-range value (e.g. energy 12/5) that the server correctly rejected, but doing so discarded every other correctly-extracted field in the same request; extraction now nulls and reports only the specific bad field. A further round of real retesting then showed the note field being filled with the model's own reasoning about rejected values, or a plain recap of every answer, on both an edge-case input and a completely normal one; a strengthened prompt alone did not stop this reliably, so a deterministic check now drops any note that reads like commentary about the extraction (naming a rejected value, or covering most of the tracked topics at once) rather than trusting the model's compliance.
 
 ## Scope and privacy
 

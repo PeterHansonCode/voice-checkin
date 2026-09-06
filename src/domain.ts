@@ -10,6 +10,26 @@ export type Answers = {
 export class InputError extends Error {}
 export class ConflictError extends Error {}
 
+// The extraction prompt tells the model to keep note empty unless the user
+// stated an explicit personal remark, but a small local model does not
+// reliably obey that -- observed in practice leaking its own reasoning
+// about rejected fields ("energy is invalid because...") or a plain recap
+// of every field ("Slept 7 hours, energy 4, exercised 10 minutes...") into
+// note instead of leaving it empty. Prompting alone did not fix this, so
+// this is a deterministic backstop: never trust note if it reads like
+// commentary about the extraction itself rather than something the user
+// actually said as an aside. This is a heuristic, not true understanding --
+// it can occasionally drop a genuine note that happens to closely resemble
+// a recap, but never invents or keeps fabricated commentary, which matches
+// this project's "never guess" rule better than trusting the model here would.
+const LEAK_PHRASES = /\b(invalid|nonsensical|physically impossible|out of range|outside the|rounded to|per (the )?(rules|constraints|instruction)|as per|not feasible|final (output|energy|value)|no valid energy)\b/i;
+const TOPIC_WORDS: RegExp[] = [/\bslept?\b/i, /\benergy\b/i, /\bsunlight\b/i, /\bexercis/i, /\bmeditat/i];
+
+function looksLikeLeakedSummary(note: string): boolean {
+  if (LEAK_PHRASES.test(note)) return true;
+  return TOPIC_WORDS.filter(re => re.test(note)).length >= 3;
+}
+
 function inRange(key: 'sleepHours' | 'energy', n: unknown): n is number {
   if (typeof n !== 'number' || !Number.isFinite(n)) return false;
   if (key === 'energy') return Number.isInteger(n) && n >= 1 && n <= 5;
@@ -63,7 +83,7 @@ export function sanitizeExtractedAnswers(value: unknown): {answers: Answers; dro
   };
   const rawNote = a.note;
   let note: string;
-  if (typeof rawNote === 'string' && rawNote.length <= 1000) {
+  if (typeof rawNote === 'string' && rawNote.length <= 1000 && !looksLikeLeakedSummary(rawNote)) {
     note = rawNote;
   } else {
     if (rawNote !== undefined && rawNote !== null && rawNote !== '') dropped.push('note');
